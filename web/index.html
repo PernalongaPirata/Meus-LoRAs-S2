@@ -1,0 +1,1694 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meus LoRAs S2 — Gerenciador de Fichas & Prompts</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%231c1917'/%3E%3Cpath d='M50 20 80 50 50 80 20 50Z' fill='none' stroke='%23e8b04b' stroke-width='8'/%3E%3Ccircle cx='50' cy='50' r='9' fill='%23e8b04b'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============ TOKENS ============ */
+:root{
+  color-scheme: dark;
+  --bg:#17151a;
+  --dot:rgba(233,228,216,.055);
+  --panel:#1e1b20;
+  --card:#221f1b;
+  --line:#34302a;
+  --line-soft:rgba(233,228,216,.07);
+  --text:#e9e4d8;
+  --muted:#9a938a;
+  --faint:#6f695e;
+  --amber:#e8b04b;
+  --danger:#e2604f;
+  --ok:#8fce7a;
+  --cat:#e8b04b; /* fallback / accent fora de categorias */
+  --font-d:'Chakra Petch','Segoe UI',sans-serif;
+  --font-m:'JetBrains Mono',ui-monospace,'Cascadia Mono',Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--font-m);
+  color:var(--text);
+  background-color:var(--bg);
+  background-image:
+    radial-gradient(1100px 480px at 75% -8%, rgba(232,176,75,.06), transparent 62%),
+    radial-gradient(900px 420px at -10% 108%, rgba(95,179,161,.05), transparent 60%),
+    radial-gradient(circle, var(--dot) 1px, transparent 1.4px);
+  background-size:auto,auto,22px 22px;
+  min-height:100vh;
+}
+::selection{background:rgba(232,176,75,.35)}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#3a352d;border-radius:99px;border:2px solid var(--bg)}
+::-webkit-scrollbar-thumb:hover{background:#57503f}
+button{font:inherit;color:inherit;cursor:pointer}
+input,select{font:inherit}
+mark{background:rgba(232,176,75,.4);color:inherit;border-radius:3px;padding:0 1px}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes popIn{from{opacity:0;transform:translateY(6px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes pulse{0%{transform:scale(1)}40%{transform:scale(1.5)}100%{transform:scale(1)}}
+
+/* ============ TOPBAR ============ */
+.topbar{
+  position:sticky;top:0;z-index:50;
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+  padding:12px 22px;
+  background:rgba(25,22,27,.93);
+  border-bottom:1px solid #2c2925;
+  backdrop-filter:blur(5px);
+}
+.brand{display:flex;align-items:center;gap:11px;flex:0 0 auto}
+.brand-badge{
+  width:32px;height:32px;border-radius:9px;flex:0 0 auto;
+  background:linear-gradient(135deg,#f0b95a,#c97e3d);
+  display:grid;place-items:center;color:#221704;font-size:17px;
+  box-shadow:0 3px 12px rgba(232,176,75,.25);
+}
+.brand-name{font-family:var(--font-d);font-weight:700;font-size:16px;letter-spacing:.1em;line-height:1}
+.brand-name b{color:var(--amber)}
+.brand-sub{font-size:9px;letter-spacing:.24em;color:var(--faint);text-transform:uppercase;margin-top:3px}
+.search-wrap{position:relative;flex:1 1 260px;max-width:560px}
+.search-wrap svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--faint);pointer-events:none}
+#search{width:100%;padding-left:33px;padding-right:30px}
+#searchClear{
+  position:absolute;right:6px;top:50%;transform:translateY(-50%);
+  width:20px;height:20px;border:0;border-radius:5px;background:none;color:var(--faint);
+  display:none;place-items:center;
+}
+#searchClear:hover{color:var(--danger);background:rgba(226,96,79,.12)}
+#searchClear.vis{display:grid}
+.top-tools{display:flex;align-items:center;gap:10px;margin-left:auto}
+#stats{font-size:10.5px;color:var(--muted);letter-spacing:.04em;white-space:nowrap}
+#stats b{color:var(--amber);font-weight:600}
+.save-ind{display:flex;align-items:center;gap:6px;font-size:9.5px;letter-spacing:.14em;color:var(--faint);text-transform:uppercase}
+.save-ind .sdot{width:7px;height:7px;border-radius:50%;background:#57503f;transition:background .2s}
+.save-ind.flash .sdot{background:var(--ok);box-shadow:0 0 8px rgba(143,206,122,.9);animation:pulse .55s}
+
+/* ============ BOTÕES / INPUTS ============ */
+.btn{
+  font-family:var(--font-d);font-weight:600;font-size:12.5px;letter-spacing:.04em;
+  display:inline-flex;align-items:center;gap:6px;white-space:nowrap;
+  padding:7px 13px;border-radius:8px;
+  border:1px solid #3a352d;background:#2a2723;color:var(--text);
+  transition:transform .15s,background .15s,border-color .15s,filter .15s;
+}
+.btn:hover{border-color:#5a5342;background:#33302a;transform:translateY(-1px)}
+.btn:active{transform:translateY(0)}
+.btn svg{width:13px;height:13px}
+.btn.primary{background:linear-gradient(180deg,#f0b95a,#d99a36);color:#221704;border-color:#a97a2c}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.sm{padding:5px 10px;font-size:11.5px;border-radius:7px}
+.btn.xs{padding:3px 8px;font-size:10.5px;border-radius:6px}
+.btn.ghost{background:transparent}
+.btn.ghost:hover{background:#2c2925}
+.ibtn{
+  width:26px;height:26px;flex:0 0 auto;display:grid;place-items:center;
+  border:0;border-radius:7px;background:none;color:var(--muted);
+  transition:background .15s,color .15s,transform .15s;
+}
+.ibtn svg{width:14px;height:14px}
+.ibtn:hover{background:#332f29;color:var(--text);transform:translateY(-1px)}
+.ibtn.danger:hover{color:#ff8d7e;background:rgba(226,96,79,.13)}
+.ibtn.armed{width:auto;padding:0 9px;font-family:var(--font-d);font-size:10px;letter-spacing:.05em;
+  background:rgba(226,96,79,.16);color:#ff8d7e;border:1px solid rgba(226,96,79,.55)}
+.x-btn{
+  width:22px;height:22px;flex:0 0 auto;display:grid;place-items:center;
+  border:0;border-radius:6px;background:none;color:var(--faint);opacity:.55;
+  transition:.15s;
+}
+.x-btn svg{width:12px;height:12px}
+.x-btn:hover{opacity:1;color:#ff8d7e;background:rgba(226,96,79,.13)}
+.c-btn{
+  width:22px;height:22px;flex:0 0 auto;display:grid;place-items:center;
+  border:0;border-radius:6px;background:none;color:var(--faint);opacity:.6;
+  font-size:12px;line-height:1;transition:.15s;
+}
+.c-btn:hover{opacity:1;color:#f0b95a;background:rgba(232,176,75,.14)}
+.x-btn.armed{
+  width:auto;height:22px;padding:0 8px;opacity:1;white-space:nowrap;
+  font-family:var(--font-d);font-size:10px;letter-spacing:.05em;
+  background:rgba(226,96,79,.16);color:#ff8d7e;
+  border:1px solid rgba(226,96,79,.55);border-radius:6px;
+}
+.inp,input.mono,select{
+  font-family:var(--font-m);font-size:12.5px;color:#e6e1d5;
+  background:#171512;border:1px solid #37322b;border-radius:7px;
+  padding:7px 10px;outline:none;width:100%;
+  transition:border-color .15s,box-shadow .15s;
+}
+.inp::placeholder,input::placeholder{color:#5d574d}
+.inp:focus,input.mono:focus,select:focus{
+  border-color:color-mix(in srgb, var(--cat) 55%, #4a443a);
+  box-shadow:0 0 0 3px color-mix(in srgb, var(--cat) 13%, transparent);
+}
+select{
+  appearance:none;cursor:pointer;padding-right:28px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239a938a' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;
+}
+
+/* ============ DECK ============ */
+#deck{max-width:1560px;margin:0 auto;padding:26px 22px 90px}
+.new-cat{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:14px 16px;margin-bottom:24px;border-radius:12px;
+  border:1px dashed rgba(232,176,75,.45);background:rgba(232,176,75,.05);
+  animation:rise .3s both;
+}
+.new-cat .port{background:var(--amber);box-shadow:0 0 8px rgba(232,176,75,.7)}
+.new-cat input{flex:1 1 240px}
+.empty-deck,.no-result{
+  border:1px dashed #3f3a33;border-radius:16px;padding:64px 30px;
+  text-align:center;color:var(--muted);animation:rise .35s both;
+}
+.empty-deck h2,.no-result h2{font-family:var(--font-d);font-size:21px;color:var(--text);letter-spacing:.04em;margin-bottom:10px}
+.empty-deck p{font-size:12px;max-width:480px;margin:0 auto 22px;line-height:1.7}
+.node-dots{display:flex;gap:8px;justify-content:center;margin-bottom:22px}
+.node-dots i{width:11px;height:11px;border-radius:50%;display:block}
+
+/* ============ CATEGORIA ============ */
+.cat{
+  border:1px solid #2b2723;
+  border-color:color-mix(in srgb, var(--cat) 26%, #2b2723);
+  border-radius:14px;
+  background:#1a181a;
+  background:color-mix(in srgb, var(--cat) 4%, rgba(0,0,0,.14));
+  margin-bottom:30px;animation:rise .35s both;
+}
+.cat-bar{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:10px 14px;
+  background:#232019;
+  background:color-mix(in srgb, var(--cat) 15%, #201c18);
+  border-bottom:1px solid #332e26;
+  border-bottom-color:color-mix(in srgb, var(--cat) 20%, #332e26);
+}
+.cat.collapsed .cat-bar{border-bottom-color:transparent}
+.port{width:10px;height:10px;flex:0 0 auto;border-radius:50%;background:var(--cat);box-shadow:0 0 9px color-mix(in srgb, var(--cat) 75%, transparent)}
+.chev{width:24px;height:24px;display:grid;place-items:center;border:0;border-radius:6px;background:none;color:var(--muted)}
+.chev svg{width:15px;height:15px;transition:transform .3s}
+.chev:hover{background:#332f29;color:var(--text)}
+.cat.collapsed .chev svg{transform:rotate(-90deg)}
+.cat-name{
+  flex:1 1 180px;min-width:120px;background:none;border:0;padding:3px 4px;border-radius:6px;
+  font-family:var(--font-d);font-weight:600;font-size:15px;letter-spacing:.03em;color:#f3efe6;
+}
+.cat-name:hover{background:rgba(0,0,0,.22)}
+.cat-name:focus{background:rgba(0,0,0,.32);box-shadow:inset 0 -2px 0 var(--cat)}
+.cat-count{font-size:10px;color:var(--muted);letter-spacing:.08em;white-space:nowrap}
+.cat-tools{display:flex;align-items:center;gap:8px;margin-left:auto}
+.cat-body{display:grid;grid-template-rows:1fr;transition:grid-template-rows .32s ease;overflow:visible}
+.cat.collapsed .cat-body{grid-template-rows:0fr;overflow:hidden}
+.cat-clip{min-height:0;overflow:visible}
+.cat.collapsed .cat-clip{overflow:hidden}
+.cat-grid{
+  padding:16px;display:grid;gap:16px;align-items:start;overflow:visible;
+  grid-template-columns:repeat(var(--cols,3),minmax(0,1fr));
+  transition:opacity .25s;
+}
+.card{min-width:0}
+.cols-lab{
+  display:inline-flex;align-items:center;gap:7px;white-space:nowrap;
+  font-family:var(--font-d);font-weight:600;font-size:11.5px;letter-spacing:.05em;color:var(--muted);
+}
+#colsSel{width:auto;padding:5px 26px 5px 9px;font-size:12px;border-radius:7px}
+.cat.collapsed .cat-grid{opacity:0}
+.cat-empty{
+  grid-column:1/-1;padding:22px;text-align:center;font-size:11.5px;color:var(--faint);
+  border:1px dashed #3a352d;border-radius:10px;
+}
+.cat-empty b{color:var(--muted)}
+
+/* ============ FICHA (NODE CARD) ============ */
+.card{
+  border:1px solid #35302a;border-radius:12px;background:var(--card);
+  box-shadow:0 2px 10px rgba(0,0,0,.25);
+  transition:transform .18s,border-color .18s,box-shadow .18s;
+  animation:rise .35s both;
+  overflow:visible;
+}
+.cat-color{
+  width:26px;height:26px;flex:0 0 auto;padding:0;border:1px solid #3a352d;
+  border-radius:50%;background:none;cursor:pointer;appearance:none;-webkit-appearance:none;
+}
+.cat-color::-webkit-color-swatch-wrapper{padding:2px}
+.cat-color::-webkit-color-swatch{border:0;border-radius:50%}
+.cat-color::-moz-color-swatch{border:0;border-radius:50%}
+.dup-btn:hover{color:#f0b95a !important;background:rgba(232,176,75,.13) !important}
+.card:hover{
+  transform:translateY(-2px);
+  border-color:#4a443a;
+  border-color:color-mix(in srgb, var(--cat) 42%, #3a352e);
+  box-shadow:0 10px 26px rgba(0,0,0,.38);
+}
+.card-head{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:10px 12px;
+  background:#28221c;
+  background:color-mix(in srgb, var(--cat) 17%, #262019);
+  border-bottom:1px solid #332c24;
+  border-bottom-color:color-mix(in srgb, var(--cat) 22%, #332c24);
+  border-radius:12px 12px 0 0;
+}
+.card-name{
+  flex:1 1 140px;min-width:110px;background:none;border:0;padding:3px 4px;border-radius:6px;
+  font-family:var(--font-d);font-weight:600;font-size:14px;color:#f5f1e7;
+}
+.card-name:hover{background:rgba(0,0,0,.2)}
+.card-name:focus{background:rgba(0,0,0,.3);box-shadow:inset 0 -2px 0 var(--cat)}
+.card-id{font-size:9px;color:var(--faint);letter-spacing:.14em}
+.nsfw{
+  font-family:var(--font-d);font-weight:600;font-size:10.5px;letter-spacing:.05em;white-space:nowrap;
+  display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;border:1px solid;
+  transition:.15s;
+}
+.nsfw i{width:6px;height:6px;border-radius:50%;background:currentColor;display:block}
+.nsfw:active{transform:scale(.93)}
+.nsfw.s0{color:#ff8d7e;border-color:rgba(226,96,79,.55);background:rgba(226,96,79,.13)}
+.nsfw.s1{color:#96d181;border-color:rgba(127,191,106,.45);background:rgba(127,191,106,.1)}
+.nsfw.s2{color:#eec06a;border-color:rgba(238,192,106,.5);background:rgba(238,192,106,.1)}
+.card-body{padding:12px;display:flex;flex-direction:column;gap:11px}
+.row{display:flex;flex-direction:column;gap:6px}
+.row + .row{border-top:1px dashed var(--line-soft);padding-top:11px}
+.rlab{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.rlab-t{
+  font-size:9.5px;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:#8f887c;
+  line-height:1.5;
+}
+.ctrl{display:flex;align-items:center;gap:7px}
+.grow{flex:1 1 auto;min-width:0}
+.str-in{width:86px;flex:0 0 auto;text-align:center}
+.str-in.wide{width:100%;flex:1;text-align:left}
+.dash{color:var(--faint)}
+.flist{display:flex;flex-direction:column;gap:7px}
+/* grade fixa: rótulo | campo | copiar | excluir — nunca sobrepõe, mesmo com 5 colunas */
+.frow{display:grid;grid-template-columns:minmax(0,44%) minmax(0,1fr) auto auto;align-items:center;gap:8px}
+.frow>.flabel{min-width:0;max-width:100%}
+.flabel{
+  font-size:10.5px;line-height:1.45;color:#a49c8e;overflow-wrap:anywhere;
+}
+.list-hint{font-size:10.5px;color:var(--faint);font-style:italic;padding:2px 0}
+
+/* popover (posicionado via JS com position:fixed p/ nunca cortar) */
+.popwrap{position:relative;display:inline-flex}
+.pop{
+  position:fixed;z-index:150;
+  min-width:200px;max-width:min(280px,calc(100vw - 16px));display:none;flex-direction:column;gap:2px;padding:6px;
+  background:#26231f;border:1px solid #423c33;border-radius:10px;
+  box-shadow:0 14px 34px rgba(0,0,0,.55);
+  white-space:normal;
+}
+.pop.left{right:auto;left:0}
+.pop.open{display:flex;animation:popIn .16s ease}
+.pop-item{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  border:0;background:none;border-radius:7px;padding:7px 9px;text-align:left;
+  font-family:var(--font-m);font-size:11.5px;color:var(--text);transition:background .12s;
+  white-space:nowrap;
+}
+.pop-item em{font-style:normal;font-size:9.5px;color:#7d766a;white-space:normal;text-align:right;flex:0 1 auto}
+#popmenu{
+  position:fixed;z-index:300;display:none;flex-direction:column;gap:2px;padding:6px;
+  width:max-content;min-width:200px;max-width:min(330px,calc(100vw - 16px));
+  background:#26231f;border:1px solid #423c33;border-radius:10px;
+  box-shadow:0 18px 44px rgba(0,0,0,.6);
+}
+#popmenu.open{display:flex;animation:popIn .15s ease}
+#popmenu .pop-item{white-space:nowrap}
+#popmenu .pop-item em{white-space:nowrap}
+.pop-item:hover{background:#332f28}
+.pop-item.on{color:#f0b95a}
+.pop-item .chk{color:#f0b95a;font-weight:700}
+
+/* ============ MENU BOTÃO DIREITO ============ */
+#ctxmenu{
+  position:fixed;z-index:200;display:none;flex-direction:column;gap:2px;padding:6px;
+  min-width:230px;max-width:300px;
+  background:#26231f;border:1px solid #4a443a;border-radius:10px;
+  box-shadow:0 18px 44px rgba(0,0,0,.6);
+}
+#ctxmenu.open{display:flex;animation:popIn .15s ease}
+#ctxmenu .ctx-title{
+  font-family:var(--font-d);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--faint);padding:6px 9px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+#ctxmenu .ctx-item{
+  display:flex;align-items:center;gap:9px;width:100%;
+  border:0;background:none;border-radius:7px;padding:8px 9px;text-align:left;
+  font-family:var(--font-m);font-size:12px;color:var(--text);
+}
+#ctxmenu .ctx-item:hover{background:#38332c}
+#ctxmenu .ctx-item.danger{color:#ff8d7e}
+#ctxmenu .ctx-item.danger:hover{background:rgba(226,96,79,.13)}
+#ctxmenu .ctx-sep{height:1px;background:#38332c;margin:4px 6px}
+
+/* ============ MODAL ============ */
+.modal{position:fixed;inset:0;z-index:100;display:none;place-items:center;background:rgba(10,9,8,.62);backdrop-filter:blur(3px)}
+.modal.open{display:grid}
+.modal-card{
+  width:min(480px,92vw);background:#211e1a;border:1px solid #3d382f;border-radius:14px;
+  box-shadow:0 24px 60px rgba(0,0,0,.6);animation:popIn .22s ease;
+}
+.modal-head{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:13px 16px;background:#26221d;border-bottom:1px solid #332f28;border-radius:14px 14px 0 0;
+}
+.modal-head h3{font-family:var(--font-d);font-size:14px;letter-spacing:.08em}
+.modal-head small{display:block;font-family:var(--font-m);font-size:9.5px;color:var(--faint);letter-spacing:.06em;margin-top:2px}
+#modelList{list-style:none;max-height:300px;overflow:auto;padding:10px;display:flex;flex-direction:column;gap:5px}
+.model-row{
+  display:flex;align-items:center;gap:10px;padding:8px 10px;
+  background:#26231e;border:1px solid #322e27;border-radius:8px;transition:border-color .15s;
+}
+.model-row:hover{border-color:#4a443a}
+.m-port{width:8px;height:8px;border-radius:50%;background:var(--amber);box-shadow:0 0 6px rgba(232,176,75,.75);flex:0 0 auto}
+.m-name{font-size:12.5px}
+.m-count{margin-left:auto;font-size:9.5px;color:#7d766a;white-space:nowrap}
+.model-hint{padding:16px;text-align:center;font-size:11px;color:var(--faint)}
+.modal-add{display:flex;gap:8px;padding:12px 16px;border-top:1px solid #332f28}
+.modal-add input{flex:1}
+
+/* ============ TOAST ============ */
+#toast{
+  position:fixed;right:18px;bottom:18px;z-index:120;pointer-events:none;
+  padding:10px 14px;border-radius:9px;background:#26231e;
+  border:1px solid #4a443a;border-left:3px solid var(--ok);
+  font-size:12px;box-shadow:0 10px 30px rgba(0,0,0,.45);
+  opacity:0;transform:translateY(12px);transition:.25s;
+}
+#toast.show{opacity:1;transform:none}
+#toast.warn{border-left-color:#eec06a}
+#toast.err{border-left-color:var(--danger)}
+
+/* ============ TEMA CLARO ============ */
+body.light{
+  color-scheme:light;
+  --bg:#ece8df;
+  --dot:rgba(70,58,35,.12);
+  --panel:#f5f1e9;
+  --card:#fffdf8;
+  --line:#d3cab6;
+  --line-soft:rgba(70,58,35,.14);
+  --text:#2b251c;
+  --muted:#6f6656;
+  --faint:#9a917f;
+}
+body.light{background-image:
+  radial-gradient(1100px 480px at 75% -8%, rgba(200,140,40,.10), transparent 62%),
+  radial-gradient(900px 420px at -10% 108%, rgba(70,150,135,.10), transparent 60%),
+  radial-gradient(circle, var(--dot) 1px, transparent 1.4px)}
+body.light ::-webkit-scrollbar-thumb{background:#c6bba2;border-color:var(--bg)}
+body.light ::-webkit-scrollbar-thumb:hover{background:#a89a7d}
+body.light .topbar{background:rgba(250,247,240,.94);border-bottom-color:#ddd4c1}
+body.light .btn{border-color:#cfc6b0;background:#fffdf8}
+body.light .btn:hover{border-color:#a89a7d;background:#f0e9d8}
+body.light .ibtn:hover{background:#e7dfcc;color:var(--text)}
+body.light .chev:hover{background:#e7dfcc;color:var(--text)}
+body.light .inp,body.light input.mono,body.light #colsSel{background-color:#fff;border-color:#c9bda1;color:#2b251c}
+body.light select{background-color:#fff;border-color:#c9bda1;color:#2b251c;background-repeat:no-repeat;background-position:right 10px center}
+body.light .inp::placeholder,body.light input::placeholder{color:#978b74}
+body.light select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237d7261' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")}
+body.light .str-in{background-color:#fff;border:1px solid #c9bda1;color:#2b251c;border-radius:7px;padding:7px 10px;outline:none}
+body.light .empty-deck,body.light .no-result{border-color:#cfc6b0}
+body.light .cat{border-color:color-mix(in srgb, var(--cat) 30%, #d8cfba);background:color-mix(in srgb, var(--cat) 7%, #f5f1e8)}
+body.light .cat-bar{background:color-mix(in srgb, var(--cat) 22%, #e6ddc8);border-bottom-color:color-mix(in srgb, var(--cat) 28%, #d3c9b2)}
+body.light .cat-name{color:#2b251c}
+body.light .cat-name:hover{background:rgba(120,100,60,.12)}
+body.light .cat-name:focus{background:rgba(120,100,60,.16)}
+body.light .card{border-color:#d5ccb6;box-shadow:0 2px 10px rgba(80,65,35,.12)}
+body.light .card:hover{border-color:#b3a37f;box-shadow:0 10px 26px rgba(80,65,35,.18)}
+body.light .card-head{background:color-mix(in srgb, var(--cat) 24%, #e9e0cc);border-bottom-color:color-mix(in srgb, var(--cat) 30%, #d3c8ae)}
+body.light .card-name{color:#2b251c}
+body.light .card-name:hover{background:rgba(120,100,60,.10)}
+body.light .card-name:focus{background:rgba(120,100,60,.14)}
+body.light .nsfw.s0{color:#b64635;border-color:rgba(182,70,53,.5);background:rgba(182,70,53,.10)}
+body.light .nsfw.s1{color:#4f8540;border-color:rgba(79,133,64,.45);background:rgba(79,133,64,.10)}
+body.light .nsfw.s2{color:#8a6a1c;border-color:rgba(138,106,28,.5);background:rgba(138,106,28,.10)}
+body.light .rlab-t{color:#6f6656}
+body.light .flabel{color:#6f6656}
+body.light .cat-empty{border-color:#cfc6b0}
+body.light #popmenu{background:#fffdf8;border-color:#cfc6b0}
+body.light #popmenu .pop-item:hover{background:#efe8d6}
+body.light #popmenu .pop-item.on{color:#8a6a1c}
+body.light #popmenu .pop-item .chk{color:#8a6a1c}
+body.light #popmenu .pop-item em{color:#8a8172}
+body.light #ctxmenu{background:#fffdf8;border-color:#cfc6b0}
+body.light #ctxmenu .ctx-item:hover{background:#efe8d6}
+body.light #ctxmenu .ctx-sep{background:#ddd4c1}
+body.light .modal-card{background:#faf7f0;border-color:#cfc6b0}
+body.light .modal-head{background:#efe8d8;border-bottom-color:#ddd4c1}
+body.light .model-row{background:#fffdf8;border-color:#d8cfba}
+body.light .model-row:hover{border-color:#b3a37f}
+body.light .modal-add{border-top-color:#ddd4c1}
+body.light #toast{background:#fffdf8;border-color:#cfc6b0}
+body.light .save-ind .sdot{background:#c6bba2}
+body.light .x-btn:hover{background:rgba(182,70,53,.12)}
+
+/* ============ IDIOMA (seletor PT/EN/ES) ============ */
+.lang-switch{display:flex;align-items:center;border:1px solid #3a352d;border-radius:8px;overflow:hidden;flex:0 0 auto}
+.lang-btn{
+  font-family:var(--font-d);font-weight:600;font-size:10.5px;letter-spacing:.05em;
+  padding:6px 10px;background:#2a2723;color:var(--muted);border:0;border-right:1px solid #3a352d;
+  transition:background .15s,color .15s;
+}
+.lang-btn:last-child{border-right:0}
+.lang-btn:hover{background:#33302a;color:var(--text)}
+.lang-btn.active{background:linear-gradient(180deg,#f0b95a,#d99a36);color:#221704}
+body.light .lang-switch{border-color:#cfc6b0}
+body.light .lang-btn{background:#fffdf8;border-right-color:#cfc6b0;color:#6f6656}
+body.light .lang-btn:hover{background:#f0e9d8;color:#2b251c}
+body.light .lang-btn.active{background:linear-gradient(180deg,#f0b95a,#d99a36);color:#221704}
+
+/* ============ RESPONSIVO ============ */
+@media (max-width:760px){
+  .topbar{padding:10px 14px;gap:10px}
+  .search-wrap{order:3;flex:1 1 100%;max-width:none}
+  #stats{display:none}
+  .brand-sub{display:none}
+  #deck{padding:18px 12px 90px}
+  .cat-grid{grid-template-columns:1fr;padding:12px}
+  .frow{grid-template-columns:minmax(0,1fr) auto auto}
+  .frow>.flabel{grid-column:1/-1;max-width:100%}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-badge">◈</span>
+    <div>
+      <div class="brand-name" id="brandName">Meus LoRAs <b>S2</b></div>
+      <div class="brand-sub" id="brandSub">fichas &amp; prompts</div>
+    </div>
+  </div>
+  <div class="search-wrap">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input id="search" class="inp" type="text" placeholder="Buscar por categoria ou ficha… (ex.: Akane, Illustrious, S2)" autocomplete="off" spellcheck="false">
+    <button id="searchClear" title="Limpar busca">✕</button>
+  </div>
+  <div class="top-tools">
+    <span id="stats"></span>
+    <span class="save-ind" id="saveInd" title="Tudo é salvo automaticamente num arquivo ao lado do aplicativo"><span class="sdot"></span>auto-save</span>
+    <div class="lang-switch" id="langSwitch" title="App language / Idioma">
+      <button class="lang-btn" data-action="set-lang" data-lang="pt">PT</button>
+      <button class="lang-btn" data-action="set-lang" data-lang="en">EN</button>
+      <button class="lang-btn" data-action="set-lang" data-lang="es">ES</button>
+    </div>
+    <label class="cols-lab" id="colsLabel" title="Quantas fichas por linha em todas as categorias"><span id="colsLabelText">Colunas</span>
+      <select id="colsSel" title="Fichas por linha (vale para todas as categorias)">
+        <option value="3">3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+      </select>
+    </label>
+    <button class="btn ghost sm" data-action="theme" id="themeBtn" title="Alternar modo escuro / claro">☾ Escuro</button>
+    <button class="btn ghost sm" data-action="open-models" id="modelsBtn" title="Gerenciar lista de modelos">⚙ Modelos</button>
+    <button class="btn primary" data-action="add-cat" id="addCatBtn">+ Nova Categoria</button>
+  </div>
+</header>
+
+<main id="deck"></main>
+
+<!-- MODAL: GERENCIAR MODELOS -->
+<div class="modal" id="modal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div>
+        <h3 id="modalTitle">⚙ MODELOS DE IA</h3>
+        <small id="modalSubtitle">valem para todo o app · salvos num arquivo ao lado do aplicativo</small>
+      </div>
+      <button class="ibtn" id="modalClose" title="Fechar">✕</button>
+    </div>
+    <ul id="modelList"></ul>
+    <div class="modal-add">
+      <input id="newModelName" class="inp" type="text" placeholder="Nome do novo modelo…" autocomplete="off" spellcheck="false">
+      <button class="btn primary sm" id="addModelBtn">Adicionar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="ctxmenu"></div>
+<div id="popmenu"></div>
+
+<script>
+/* =========================================================
+   Meus LoRAs S2 — aplicativo desktop (pywebview) · dados salvos
+   num arquivo local ao lado do executável
+   ========================================================= */
+const DEFAULT_MODELS = ['Illustrious','Pony','Mini Max H3','Mini Max Music','LTX 2.3','LTX 2.5','Krea 2','Z-image'];
+const PALETTE = ['#e0a458','#5fb3a1','#6b8fd6','#c678b8','#a3c46e','#d97b6c','#9b87d6','#64b6c4']; /* mantida p/ compat com dados antigos */
+const NSFW = ["Sim","Não","Sim/Não"]; /* mantido p/ compat; textos novos usam L().nsfwLabels */
+const ITEM_LABEL = "ITENS/ROUPAS/OBJETOS DO LoRA Do Personagem"; /* idem — usar L().itemLabel */
+
+/* ============ IDIOMA (PT/EN/ES) ============ */
+const T = {
+  pt: {
+    pageTitle: "Meus LoRAs S2 — Gerenciador de Fichas & Prompts",
+    brandName: "Meus LoRAs", brandSub: "PernalongaPirata",
+    searchPlaceholder: "Buscar por categoria ou ficha… (ex.: Akane, Illustrious, S2)",
+    searchClearTitle: "Limpar busca",
+    saveIndTitle: "Tudo é salvo automaticamente num arquivo ao lado do aplicativo",
+    colsLabel: "Colunas", colsLabelTitle: "Quantas fichas por linha em todas as categorias",
+    colsSelTitle: "Fichas por linha (vale para todas as categorias)",
+    themeToggleTitle: "Alternar modo escuro / claro", themeDark: "Escuro", themeLight: "Claro",
+    modelsBtn: "Modelos", modelsBtnTitle: "Gerenciar lista de modelos",
+    addCategoryBtn: "Nova Categoria",
+    modalTitle: "MODELOS DE IA",
+    modalSubtitle: "valem para todo o app · salvos num arquivo ao lado do aplicativo",
+    modalCloseTitle: "Fechar", newModelPlaceholder: "Nome do novo modelo…", addBtn: "Adicionar",
+    emptyDeckHeading: "Nenhuma categoria criada",
+    emptyDeckText: "Monte sua biblioteca de LoRAs: crie uma categoria (ex.: <b>Akane Banashi S2</b>) e adicione as fichas de cada personagem com modelo, strength, trigger words e itens.",
+    createCategoryBtn: "Criar Nova Categoria",
+    noResultsHeading: q => `Sem resultados para “${q}”`,
+    newCatPlaceholder: "Nome da nova categoria (ex.: Akane Banashi S2)",
+    createBtn: "Criar", cancelBtn: "Cancelar",
+    collapseTitle: "Recolher / expandir", catNamePlaceholder: "Nome da categoria…",
+    catColorTitle: "Cor da categoria — clique para escolher qualquer cor RGB",
+    ficha: n => `${n} ficha${n===1?"":"s"}`,
+    addCardTitle: "Adicionar Personagem / Ficha", addCardBtn: "Ficha",
+    delCategoryTitle: "Excluir categoria",
+    catEmpty: a => `Nenhuma ficha nesta categoria ainda — use <b>+ ${a}</b> na barra acima <b>ou clique com o botão direito aqui</b> para criar a primeira.`,
+    triggerPlaceholder: "palavra_chave, outra_tag",
+    copyTriggerTitle: "Copiar trigger words", removeTriggerTitle: "Remover trigger",
+    noTriggersHint: a => `Nenhuma variação — use “${a}”.`,
+    itemLabel: "ITENS/ROUPAS/OBJETOS DO LoRA Do Personagem",
+    itemPlaceholder: "descrição do item / roupa / objeto",
+    copyItemTitle: "Copiar item", removeItemTitle: "Remover item",
+    noItemsHint: a => `Nenhum item — use “${a}”.`,
+    cardNamePlaceholder: "Nome da ficha… (ex.: Akane Ousaki 01 Illustrious S2)",
+    nsfwLabels: ["Sim","Não","Sim/Não"],
+    nsfwToggleTitle: l => `Alternar: ${l.join(" → ")}`,
+    dupCardTitle: "Duplicar ficha (copia tudo e incrementa 01→02)", delCardTitle: "Excluir ficha",
+    linkLabel: "Link do Modelo", modelLabel: "Modelo", modelSelectTitle: "Selecionar modelo",
+    addVariationBtn: "Adicionar Variação", addItemBtn: "Adicionar Item",
+    selectModelOption: "— selecionar modelo —",
+    noStrengthText: "este LoRA não usa strength",
+    strengthFormatTitle: "Formato do valor", removeStrengthTitle: "Remover campo Strength",
+    resultsStats: (r,c) => `<b>${r}</b> resultado${r===1?"":"s"} · <b>${c}</b> categoria${c===1?"":"s"}`,
+    totalStats: (c,f) => `<b>${c}</b> categoria${c===1?"":"s"} · <b>${f}</b> ficha${f===1?"":"s"}`,
+    defaultCategoryName: n => `Categoria ${n}`,
+    toastCategoryCreated: n => `Categoria criada: ${n}`,
+    confirmWord: "confirmar?",
+    toastLightMode: "Modo claro ativado", toastDarkMode: "Modo escuro ativado",
+    strengthSingleLabel: "Valor único", strengthSingleEx: "ex.: 1 · 0.95",
+    strengthRangeLabel: "Range — dois valores", strengthRangeEx: "ex.: 0.8 – 1",
+    strengthCustomLabel: "Customizado", strengthCustomEx: "texto livre",
+    toastStrengthRemoved: "Campo Strength removido da ficha",
+    toastTriggerCopied: "Trigger copiada!", toastItemCopied: "Item copiado!",
+    itemIndividualLabel: "Individual", itemIndividualEx: "novo nº sequencial",
+    itemSetLabel: "Conjunto", itemSetEx: "repete o nº anterior",
+    confirmDeleteCard: n => `Excluir a ficha “${n}”?`, unnamedCard: "sem nome",
+    toastCardDeleted: "Ficha excluída", toastCategoryDeleted: "Categoria excluída",
+    toastCardDuplicated: n => `Ficha duplicada: ${n}`,
+    toastCardAdded: n => `Ficha adicionada em “${n}”`,
+    thisCardFallback: "esta ficha", categoryFallback: "categoria",
+    ctxDuplicateCard: "Duplicar ficha", ctxNewCardHere: "Nova ficha nesta categoria",
+    ctxDeleteCard: "Excluir ficha", ctxNewCardHereShort: "Nova ficha aqui",
+    ctxNewCategory: "Nova categoria",
+    toastGrid: n => `Grade: ${n} fichas por linha`,
+    noModelsHint: "Nenhum modelo cadastrado — adicione um abaixo.",
+    removeModelTitle: "Remover modelo",
+    toastModelExists: "Esse modelo já existe na lista",
+    toastModelAdded: n => `Modelo adicionado: ${n}`, toastModelRemoved: n => `Modelo removido: ${n}`,
+    toastNothingToCopy: "Nada para copiar (campo vazio)",
+    toastCopied: "Copiado!", toastCopyFailed: "Não foi possível copiar"
+  },
+  en: {
+    pageTitle: "My LoRAs S2 — Card & Prompt Manager",
+    brandName: "My LoRAs", brandSub: "PernalongaPirata",
+    searchPlaceholder: "Search by category or card… (e.g.: Akane, Illustrious, S2)",
+    searchClearTitle: "Clear search",
+    saveIndTitle: "Everything is auto-saved to a file next to the app",
+    colsLabel: "Columns", colsLabelTitle: "How many cards per row, across all categories",
+    colsSelTitle: "Cards per row (applies to all categories)",
+    themeToggleTitle: "Toggle dark / light mode", themeDark: "Dark", themeLight: "Light",
+    modelsBtn: "Models", modelsBtnTitle: "Manage the model list",
+    addCategoryBtn: "New Category",
+    modalTitle: "AI MODELS",
+    modalSubtitle: "apply to the whole app · saved to a file next to the app",
+    modalCloseTitle: "Close", newModelPlaceholder: "New model name…", addBtn: "Add",
+    emptyDeckHeading: "No categories yet",
+    emptyDeckText: "Build your LoRA library: create a category (e.g.: <b>Akane Banashi S2</b>) and add a card for each character with model, strength, trigger words and items.",
+    createCategoryBtn: "Create New Category",
+    noResultsHeading: q => `No results for “${q}”`,
+    newCatPlaceholder: "New category name (e.g.: Akane Banashi S2)",
+    createBtn: "Create", cancelBtn: "Cancel",
+    collapseTitle: "Collapse / expand", catNamePlaceholder: "Category name…",
+    catColorTitle: "Category color — click to pick any RGB color",
+    ficha: n => `${n} card${n===1?"":"s"}`,
+    addCardTitle: "Add Character / Card", addCardBtn: "Card",
+    delCategoryTitle: "Delete category",
+    catEmpty: a => `No cards in this category yet — use <b>+ ${a}</b> in the bar above <b>or right-click here</b> to create the first one.`,
+    triggerPlaceholder: "keyword, other_tag",
+    copyTriggerTitle: "Copy trigger words", removeTriggerTitle: "Remove trigger",
+    noTriggersHint: a => `No variations — use “${a}”.`,
+    itemLabel: "ITEMS/CLOTHES/OBJECTS OF THE CHARACTER LoRA",
+    itemPlaceholder: "item / clothing / object description",
+    copyItemTitle: "Copy item", removeItemTitle: "Remove item",
+    noItemsHint: a => `No items — use “${a}”.`,
+    cardNamePlaceholder: "Card name… (e.g.: Akane Ousaki 01 Illustrious S2)",
+    nsfwLabels: ["Yes","No","Yes/No"],
+    nsfwToggleTitle: l => `Toggle: ${l.join(" → ")}`,
+    dupCardTitle: "Duplicate card (copies everything and increments 01→02)", delCardTitle: "Delete card",
+    linkLabel: "Model Link", modelLabel: "Model", modelSelectTitle: "Select model",
+    addVariationBtn: "Add Variation", addItemBtn: "Add Item",
+    selectModelOption: "— select model —",
+    noStrengthText: "this LoRA doesn't use strength",
+    strengthFormatTitle: "Value format", removeStrengthTitle: "Remove Strength field",
+    resultsStats: (r,c) => `<b>${r}</b> result${r===1?"":"s"} · <b>${c}</b> categor${c===1?"y":"ies"}`,
+    totalStats: (c,f) => `<b>${c}</b> categor${c===1?"y":"ies"} · <b>${f}</b> card${f===1?"":"s"}`,
+    defaultCategoryName: n => `Category ${n}`,
+    toastCategoryCreated: n => `Category created: ${n}`,
+    confirmWord: "confirm?",
+    toastLightMode: "Light mode enabled", toastDarkMode: "Dark mode enabled",
+    strengthSingleLabel: "Single value", strengthSingleEx: "e.g.: 1 · 0.95",
+    strengthRangeLabel: "Range — two values", strengthRangeEx: "e.g.: 0.8 – 1",
+    strengthCustomLabel: "Custom", strengthCustomEx: "free text",
+    toastStrengthRemoved: "Strength field removed from the card",
+    toastTriggerCopied: "Trigger copied!", toastItemCopied: "Item copied!",
+    itemIndividualLabel: "Individual", itemIndividualEx: "new sequential no.",
+    itemSetLabel: "Set", itemSetEx: "repeats the previous no.",
+    confirmDeleteCard: n => `Delete the card “${n}”?`, unnamedCard: "unnamed",
+    toastCardDeleted: "Card deleted", toastCategoryDeleted: "Category deleted",
+    toastCardDuplicated: n => `Card duplicated: ${n}`,
+    toastCardAdded: n => `Card added to “${n}”`,
+    thisCardFallback: "this card", categoryFallback: "category",
+    ctxDuplicateCard: "Duplicate card", ctxNewCardHere: "New card in this category",
+    ctxDeleteCard: "Delete card", ctxNewCardHereShort: "New card here",
+    ctxNewCategory: "New category",
+    toastGrid: n => `Grid: ${n} cards per row`,
+    noModelsHint: "No models added yet — add one below.",
+    removeModelTitle: "Remove model",
+    toastModelExists: "That model is already in the list",
+    toastModelAdded: n => `Model added: ${n}`, toastModelRemoved: n => `Model removed: ${n}`,
+    toastNothingToCopy: "Nothing to copy (empty field)",
+    toastCopied: "Copied!", toastCopyFailed: "Couldn't copy"
+  },
+  es: {
+    pageTitle: "Mis LoRAs S2 — Gestor de Fichas & Prompts",
+    brandName: "Mis LoRAs", brandSub: "PernalongaPirata",
+    searchPlaceholder: "Buscar por categoría o ficha… (ej.: Akane, Illustrious, S2)",
+    searchClearTitle: "Limpiar búsqueda",
+    saveIndTitle: "Todo se guarda automáticamente en un archivo junto al aplicativo",
+    colsLabel: "Columnas", colsLabelTitle: "Cuántas fichas por fila en todas las categorías",
+    colsSelTitle: "Fichas por fila (aplica a todas las categorías)",
+    themeToggleTitle: "Alternar modo oscuro / claro", themeDark: "Oscuro", themeLight: "Claro",
+    modelsBtn: "Modelos", modelsBtnTitle: "Gestionar la lista de modelos",
+    addCategoryBtn: "Nueva Categoría",
+    modalTitle: "MODELOS DE IA",
+    modalSubtitle: "aplican a toda la app · guardados en un archivo junto al aplicativo",
+    modalCloseTitle: "Cerrar", newModelPlaceholder: "Nombre del nuevo modelo…", addBtn: "Añadir",
+    emptyDeckHeading: "Ninguna categoría creada",
+    emptyDeckText: "Arma tu biblioteca de LoRAs: crea una categoría (ej.: <b>Akane Banashi S2</b>) y añade la ficha de cada personaje con modelo, strength, trigger words e ítems.",
+    createCategoryBtn: "Crear Nueva Categoría",
+    noResultsHeading: q => `Sin resultados para “${q}”`,
+    newCatPlaceholder: "Nombre de la nueva categoría (ej.: Akane Banashi S2)",
+    createBtn: "Crear", cancelBtn: "Cancelar",
+    collapseTitle: "Contraer / expandir", catNamePlaceholder: "Nombre de la categoría…",
+    catColorTitle: "Color de la categoría — clic para elegir cualquier color RGB",
+    ficha: n => `${n} ficha${n===1?"":"s"}`,
+    addCardTitle: "Añadir Personaje / Ficha", addCardBtn: "Ficha",
+    delCategoryTitle: "Eliminar categoría",
+    catEmpty: a => `Todavía no hay fichas en esta categoría — usa <b>+ ${a}</b> en la barra de arriba <b>o haz clic derecho aquí</b> para crear la primera.`,
+    triggerPlaceholder: "palabra_clave, otra_etiqueta",
+    copyTriggerTitle: "Copiar trigger words", removeTriggerTitle: "Eliminar trigger",
+    noTriggersHint: a => `Ninguna variación — usa “${a}”.`,
+    itemLabel: "ARTÍCULOS/ROPA/OBJETOS DEL LoRA DEL PERSONAJE",
+    itemPlaceholder: "descripción del artículo / ropa / objeto",
+    copyItemTitle: "Copiar artículo", removeItemTitle: "Eliminar artículo",
+    noItemsHint: a => `Ningún artículo — usa “${a}”.`,
+    cardNamePlaceholder: "Nombre de la ficha… (ej.: Akane Ousaki 01 Illustrious S2)",
+    nsfwLabels: ["Sí","No","Sí/No"],
+    nsfwToggleTitle: l => `Alternar: ${l.join(" → ")}`,
+    dupCardTitle: "Duplicar ficha (copia todo e incrementa 01→02)", delCardTitle: "Eliminar ficha",
+    linkLabel: "Enlace del Modelo", modelLabel: "Modelo", modelSelectTitle: "Seleccionar modelo",
+    addVariationBtn: "Añadir Variación", addItemBtn: "Añadir Artículo",
+    selectModelOption: "— seleccionar modelo —",
+    noStrengthText: "este LoRA no usa strength",
+    strengthFormatTitle: "Formato del valor", removeStrengthTitle: "Eliminar campo Strength",
+    resultsStats: (r,c) => `<b>${r}</b> resultado${r===1?"":"s"} · <b>${c}</b> categoría${c===1?"":"s"}`,
+    totalStats: (c,f) => `<b>${c}</b> categoría${c===1?"":"s"} · <b>${f}</b> ficha${f===1?"":"s"}`,
+    defaultCategoryName: n => `Categoría ${n}`,
+    toastCategoryCreated: n => `Categoría creada: ${n}`,
+    confirmWord: "¿confirmar?",
+    toastLightMode: "Modo claro activado", toastDarkMode: "Modo oscuro activado",
+    strengthSingleLabel: "Valor único", strengthSingleEx: "ej.: 1 · 0.95",
+    strengthRangeLabel: "Rango — dos valores", strengthRangeEx: "ej.: 0.8 – 1",
+    strengthCustomLabel: "Personalizado", strengthCustomEx: "texto libre",
+    toastStrengthRemoved: "Campo Strength eliminado de la ficha",
+    toastTriggerCopied: "¡Trigger copiado!", toastItemCopied: "¡Artículo copiado!",
+    itemIndividualLabel: "Individual", itemIndividualEx: "nuevo n.º secuencial",
+    itemSetLabel: "Conjunto", itemSetEx: "repite el n.º anterior",
+    confirmDeleteCard: n => `¿Eliminar la ficha “${n}”?`, unnamedCard: "sin nombre",
+    toastCardDeleted: "Ficha eliminada", toastCategoryDeleted: "Categoría eliminada",
+    toastCardDuplicated: n => `Ficha duplicada: ${n}`,
+    toastCardAdded: n => `Ficha añadida en “${n}”`,
+    thisCardFallback: "esta ficha", categoryFallback: "categoría",
+    ctxDuplicateCard: "Duplicar ficha", ctxNewCardHere: "Nueva ficha en esta categoría",
+    ctxDeleteCard: "Eliminar ficha", ctxNewCardHereShort: "Nueva ficha aquí",
+    ctxNewCategory: "Nueva categoría",
+    toastGrid: n => `Cuadrícula: ${n} fichas por fila`,
+    noModelsHint: "Ningún modelo registrado — añade uno abajo.",
+    removeModelTitle: "Eliminar modelo",
+    toastModelExists: "Ese modelo ya existe en la lista",
+    toastModelAdded: n => `Modelo añadido: ${n}`, toastModelRemoved: n => `Modelo eliminado: ${n}`,
+    toastNothingToCopy: "Nada para copiar (campo vacío)",
+    toastCopied: "¡Copiado!", toastCopyFailed: "No se pudo copiar"
+  }
+};
+function L(){ return T[state.lang] || T.pt; }
+
+/* --- cores infinitas RGB --- */
+function randomColor(){
+  const r = Math.floor(Math.random()*256), g = Math.floor(Math.random()*256), b = Math.floor(Math.random()*256);
+  const to = v => v.toString(16).padStart(2,'0');
+  return '#' + to(r) + to(g) + to(b); /* RGB 100% aleatório a cada nova categoria */
+}
+function colorToHex(c){
+  if(!c) return '#e8b04b';
+  c = String(c).trim();
+  if(/^#[0-9a-fA-F]{6}$/.test(c)) return c;
+  if(/^#[0-9a-fA-F]{3}$/.test(c)) return '#'+c.slice(1).split('').map(x=>x+x).join('');
+  const m = c.match(/hsl\(\s*([\d.]+)\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%\s*\)/i);
+  if(m){
+    let h=(+m[1]%360)/360, s=(+m[2])/100, l=(+m[3])/100;
+    const hue2rgb=(p,q,t)=>{if(t<0)t+=1;if(t>1)t-=1;if(t<1/6)return p+(q-p)*6*t;if(t<1/2)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p;};
+    let r,g,b;
+    if(s===0){r=g=b=l;}else{const q=l<0.5?l*(1+s):l+s-l*s;const p=2*l-q;r=hue2rgb(p,q,h+1/3);g=hue2rgb(p,q,h);b=hue2rgb(p,q,h-1/3);}
+    const to=v=>Math.round(v*255).toString(16).padStart(2,'0');
+    return '#'+to(r)+to(g)+to(b);
+  }
+  return '#e8b04b';
+}
+
+const I = {
+  gear : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',
+  x    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+  plus : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+  chev : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>'
+};
+
+/* ---------- estado ---------- */
+let state = { categories: [], models: [...DEFAULT_MODELS], colorSeq: 0, columns: 3, theme: 'dark', lang: 'pt' }; /* placeholder até carregar do arquivo */
+let query = '';
+let creatingCat = false;
+let focusSel = null;
+
+function withDefaults(d){
+  if(!d || typeof d !== 'object') return { categories: [], models: [...DEFAULT_MODELS], colorSeq: 0, columns: 3, theme: 'dark', lang: 'pt' };
+  if(!Array.isArray(d.categories)) d.categories = [];
+  if(!Array.isArray(d.models)) d.models = [...DEFAULT_MODELS];
+  if(![3,4,5].includes(d.columns)) d.columns = 3;
+  if(!['dark','light'].includes(d.theme)) d.theme = 'dark';
+  if(!['pt','en','es'].includes(d.lang)) d.lang = 'pt';
+  return d;
+}
+async function load(){
+  try{
+    const d = await window.pywebview.api.carregar_dados();
+    if(d && Array.isArray(d.categories) && Array.isArray(d.models)) return withDefaults(d);
+  }catch(e){}
+  return { categories: [], models: [...DEFAULT_MODELS], colorSeq: 0, columns: 3, theme: 'dark', lang: 'pt' };
+}
+/* ---------- tema + colunas (valem para todas as categorias) ---------- */
+function applyTheme(){
+  const light = state.theme === 'light';
+  document.body.classList.toggle('light', light);
+  const b = $('#themeBtn');
+  if(b) b.textContent = (light ? '☀ ' : '☾ ') + (light ? L().themeLight : L().themeDark);
+}
+function applyCols(){
+  const n = [3,4,5].includes(state.columns) ? state.columns : 3;
+  $('#deck').style.setProperty('--cols', n);
+  const s = $('#colsSel');
+  if(s) s.value = String(n);
+}
+/* ---------- idioma: atualiza todo texto estático (fora do #deck, que o render() já cobre) ---------- */
+function applyLang(){
+  const l = L();
+  document.title = l.pageTitle;
+  document.documentElement.lang = state.lang === 'en' ? 'en' : (state.lang === 'es' ? 'es' : 'pt-BR');
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === state.lang));
+  const set = (sel, prop, val) => { const el = $(sel); if(el) el[prop] = val; };
+  set('#brandName','innerHTML', l.brandName + ' <b>S2</b>');
+  set('#brandSub','textContent', l.brandSub);
+  set('#search','placeholder', l.searchPlaceholder);
+  set('#searchClear','title', l.searchClearTitle);
+  set('#saveInd','title', l.saveIndTitle);
+  set('#colsLabel','title', l.colsLabelTitle);
+  set('#colsLabelText','textContent', l.colsLabel);
+  set('#colsSel','title', l.colsSelTitle);
+  set('#themeBtn','title', l.themeToggleTitle);
+  set('#modelsBtn','title', l.modelsBtnTitle);
+  set('#modelsBtn','textContent', '⚙ ' + l.modelsBtn);
+  set('#addCatBtn','textContent', '+ ' + l.addCategoryBtn);
+  set('#modalTitle','textContent', '⚙ ' + l.modalTitle);
+  set('#modalSubtitle','textContent', l.modalSubtitle);
+  set('#modalClose','title', l.modalCloseTitle);
+  set('#newModelName','placeholder', l.newModelPlaceholder);
+  set('#addModelBtn','textContent', l.addBtn);
+  applyTheme();
+}
+let saveTimer = null;
+function save(){
+  try{ window.pywebview.api.salvar_dados(state); }catch(e){}
+  const ind = $('#saveInd');
+  ind.classList.remove('flash'); void ind.offsetWidth; ind.classList.add('flash');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(()=>ind.classList.remove('flash'), 700);
+}
+const uid = () => 'id' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = n => String(n).padStart(2,'0');
+const norm = s => (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+const byName = (a,b) => (a.name||'').localeCompare(b.name||'','pt-BR',{sensitivity:'base'});
+const getCat  = id => state.categories.find(c => c.id === id);
+const getCard = (cat,id) => cat && cat.cards.find(c => c.id === id);
+
+function newCard(){
+  return {
+    id: uid(), name:'', link:'', model:'',
+    nsfw: 1, /* começa em "Não" — ciclo: Não → Sim/Não → Sim */
+    strength: { mode:'single', single:'1', min:'', max:'', custom:'' },
+    triggers: [ { id: uid(), text:'' } ],
+    items:    [ { id: uid(), text:'', group:1 } ]
+  };
+}
+function newCategory(name){
+  const cat = {
+    id: uid(), name, color: randomColor(),
+    collapsed:false, cards: []
+  };
+  state.colorSeq = (state.colorSeq || 0) + 1;
+  return cat;
+}
+
+/* --- duplicar ficha: copia profunda + incremento inteligente 01->02 --- */
+function nextDuplicateName(origName, existingNames){
+  const set = new Set(existingNames || []);
+  const full = String(origName||'');
+  /* Separa sufixo tipo " Illustrious S2" ou " S2" para não incrementar o 2 do S2 */
+  let base = full, suffix = '';
+  let mS = full.match(/(\s+Illustrious\s+S\d+\s*)$/i);
+  if(mS){ suffix = mS[1]; base = full.slice(0, full.length - suffix.length); }
+  else {
+    let mS2 = full.match(/(\s+S\d+\s*)$/i);
+    if(mS2 && /\d/.test(full.slice(0, full.length - mS2[1].length))){ suffix = mS2[1]; base = full.slice(0, full.length - suffix.length); }
+  }
+  const m = base.match(/^(.*\D)?(\d+)([^\d]*)$/);
+  if(!m) return full; /* sem número: mantém o mesmo nome, como pedido */
+  const prefix = m[1] || '', numStr = m[2], rest = m[3];
+  const width = numStr.length;
+  let n = parseInt(numStr, 10) + 1;
+  for(let i=0;i<5000;i++){
+    const cand = prefix + String(n).padStart(width,'0') + rest + suffix;
+    if(!set.has(cand)) return cand;
+    n++;
+  }
+  return prefix + String(n).padStart(width,'0') + rest + suffix;
+}
+function duplicateCard(catId, cardId){
+  const cat = getCat(catId);
+  const src = cat && getCard(cat, cardId);
+  if(!cat || !src) return;
+  const clone = JSON.parse(JSON.stringify(src));
+  clone.id = uid();
+  (clone.triggers||[]).forEach(t=>t.id=uid());
+  (clone.items||[]).forEach(it=>it.id=uid());
+  const names = cat.cards.map(c=>c.name);
+  clone.name = nextDuplicateName(src.name, names);
+  cat.cards.push(clone);
+  cat.collapsed = false;
+  save();
+  focusSel = `[data-cardnode="${clone.id}"] .card-name`;
+  render();
+  toast(L().toastCardDuplicated(clone.name || L().unnamedCard));
+}
+function addCardToCat(catId, focusIt){
+  const cat = getCat(catId);
+  if(!cat) return;
+  const c = newCard();
+  cat.cards.push(c);
+  cat.collapsed = false;
+  save();
+  if(focusIt !== false) focusSel = `[data-cardnode="${c.id}"] .card-name`;
+  render();
+  toast(L().toastCardAdded(cat.name));
+  return c;
+}
+
+/* ---------- highlight de busca ---------- */
+function hl(name, q){
+  const raw = String(name||'');
+  if(!q) return esc(raw);
+  const i = raw.toLowerCase().indexOf(q);
+  if(i < 0) return esc(raw);
+  return esc(raw.slice(0,i)) + '<mark>' + esc(raw.slice(i, i+q.length)) + '</mark>' + esc(raw.slice(i+q.length));
+}
+
+/* ---------- render ---------- */
+function render(){
+  if(typeof closePops === 'function') closePops(); /* menu global não sobrevive ao re-desenho */
+  const q = norm(query.trim());
+  const qRaw = query.trim().toLowerCase();
+  const cats = [...state.categories].sort(byName);
+  let parts = [], vc = 0, vCards = 0;
+
+  for(const cat of cats){
+    const catHit = q && norm(cat.name).includes(q);
+    let shown = [...cat.cards].sort(byName);
+    if(q && !catHit){
+      shown = shown.filter(c => norm(c.name).includes(q));
+      if(!shown.length) continue;
+    }
+    vCards += catHit ? cat.cards.length : shown.length;
+    vc++;
+    parts.push(renderCat(cat, shown, catHit, qRaw));
+  }
+
+  let html = '';
+  if(creatingCat) html += newCatForm();
+  if(!state.categories.length && !creatingCat){
+    html += `
+    <div class="empty-deck">
+      <div class="node-dots">
+        <i style="background:#e0a458;box-shadow:0 0 10px #e0a458"></i>
+        <i style="background:#5fb3a1;box-shadow:0 0 10px #5fb3a1"></i>
+        <i style="background:#6b8fd6;box-shadow:0 0 10px #6b8fd6"></i>
+        <i style="background:#c678b8;box-shadow:0 0 10px #c678b8"></i>
+      </div>
+      <h2>${L().emptyDeckHeading}</h2>
+      <p>${L().emptyDeckText}</p>
+      <button class="btn primary" data-action="add-cat">${I.plus} ${L().createCategoryBtn}</button>
+    </div>`;
+  } else if(q && !parts.length){
+    html += `<div class="no-result"><h2>${L().noResultsHeading(esc(query.trim()))}</h2></div>`;
+  } else {
+    html += parts.join('');
+  }
+
+  $('#deck').innerHTML = html;
+  updateStats(vc, vCards);
+
+  if(creatingCat){ const f = $('#newCatName'); if(f) f.focus(); }
+  if(focusSel){
+    const el = $('#deck').querySelector(focusSel);
+    if(el){ el.focus(); }
+    focusSel = null;
+  }
+  $('#searchClear').classList.toggle('vis', query.length > 0);
+}
+
+function newCatForm(){
+  const l = L();
+  return `
+  <form class="new-cat" id="newCatForm">
+    <span class="port" style="--cat:#e8b04b"></span>
+    <input id="newCatName" class="inp" type="text" placeholder="${esc(l.newCatPlaceholder)}" autocomplete="off" spellcheck="false">
+    <button type="submit" class="btn primary sm">${l.createBtn}</button>
+    <button type="button" class="btn sm" data-action="new-cat-cancel">${l.cancelBtn}</button>
+  </form>`;
+}
+
+function renderCat(cat, shown, catHit, qRaw){
+  const total = cat.cards.length;
+  const l = L();
+  const cardsHtml = shown.length
+    ? shown.map((c,i) => renderCard(cat, c, qRaw, i)).join('')
+    : `<div class="cat-empty">${l.catEmpty(l.addCardBtn)}</div>`;
+  return `
+  <section class="cat ${cat.collapsed ? 'collapsed':''}" style="--cat:${cat.color}" data-catwrap="${cat.id}">
+    <header class="cat-bar">
+      <button class="chev" data-action="collapse" data-cat="${cat.id}" title="${l.collapseTitle}">${I.chev}</button>
+      <span class="port"></span>
+      <input class="cat-name" data-field="cat-name" data-cat="${cat.id}" value="${esc(cat.name)}"
+             placeholder="${esc(l.catNamePlaceholder)}" autocomplete="off" spellcheck="false">
+      <input type="color" class="cat-color" data-field="cat-color" data-cat="${cat.id}" value="${esc(colorToHex(cat.color))}"
+             title="${l.catColorTitle}">
+      <span class="cat-count">${l.ficha(total)}</span>
+      <div class="cat-tools">
+        <button class="btn sm" data-action="add-card" data-cat="${cat.id}" title="${l.addCardTitle}">${I.plus} ${l.addCardBtn}</button>
+        <button class="ibtn danger armable" data-action="del-cat" data-cat="${cat.id}" title="${l.delCategoryTitle}">${I.trash}</button>
+      </div>
+    </header>
+    <div class="cat-body"><div class="cat-clip"><div class="cat-grid" data-catgrid="${cat.id}">${cardsHtml}</div></div></div>
+  </section>`;
+}
+
+function renderCard(cat, c, qRaw, idx){
+  const d = `data-cat="${cat.id}" data-card="${c.id}"`;
+  const delay = Math.min(idx*40, 240);
+  const l = L();
+
+  /* --- trigger words --- */
+  const nT = c.triggers.length;
+  const trigHtml = nT
+    ? c.triggers.map((t,i) => `
+      <div class="frow">
+        <span class="flabel">${nT===1 ? 'Trigger Words:' : 'Trigger Words ' + pad(i+1) + ':'}</span>
+        <input class="mono grow" data-field="trigger" ${d} data-id="${t.id}" value="${esc(t.text)}"
+               placeholder="${esc(l.triggerPlaceholder)}" autocomplete="off" spellcheck="false">
+        <button class="c-btn" data-action="copy-trigger" ${d} data-id="${t.id}" title="${l.copyTriggerTitle}">⧉</button>
+        <button class="x-btn" data-action="trig-del" ${d} data-id="${t.id}" title="${l.removeTriggerTitle}">${I.x}</button>
+      </div>`).join('')
+    : `<div class="list-hint">${l.noTriggersHint(l.addVariationBtn)}</div>`;
+
+  /* --- itens (numeração por grupo; conjunto repete o número) --- */
+  const order = [];
+  c.items.forEach(it => { if(!order.includes(it.group)) order.push(it.group); });
+  const nI = c.items.length;
+  const itemsHtml = nI
+    ? c.items.map(it => {
+        const num = order.indexOf(it.group) + 1;
+        const label = nI===1 ? l.itemLabel + ':' : l.itemLabel + ' ' + pad(num) + ':';
+        return `
+        <div class="frow">
+          <span class="flabel">${label}</span>
+          <input class="mono grow" data-field="item" ${d} data-id="${it.id}" value="${esc(it.text)}"
+                 placeholder="${esc(l.itemPlaceholder)}" autocomplete="off" spellcheck="false">
+          <button class="c-btn" data-action="copy-item" ${d} data-id="${it.id}" title="${l.copyItemTitle}">⧉</button>
+          <button class="x-btn" data-action="item-del" ${d} data-id="${it.id}" title="${l.removeItemTitle}">${I.x}</button>
+        </div>`;
+      }).join('')
+    : `<div class="list-hint">${l.noItemsHint(l.addItemBtn)}</div>`;
+
+  return `
+  <article class="card" data-cardnode="${c.id}" data-cat="${cat.id}" data-card="${c.id}" style="animation-delay:${delay}ms">
+    <header class="card-head">
+      <span class="port"></span>
+      <input class="card-name" data-field="card-name" ${d} value="${esc(c.name)}"
+             placeholder="${esc(l.cardNamePlaceholder)}" autocomplete="off" spellcheck="false">
+      <span class="card-id">#${c.id.slice(-4).toUpperCase()}</span>
+      <button class="nsfw s${c.nsfw}" data-action="nsfw" ${d} title="${l.nsfwToggleTitle(l.nsfwLabels)}"><i></i>NSFW: ${l.nsfwLabels[c.nsfw]}</button>
+      <button class="ibtn dup-btn" data-action="dup-card" ${d} title="${l.dupCardTitle}">⧉</button>
+      <button class="x-btn armable" data-action="del-card" ${d} title="${l.delCardTitle}">${I.x}</button>
+    </header>
+    <div class="card-body">
+
+      <div class="row">
+        <div class="rlab"><span class="rlab-t">${l.linkLabel}</span></div>
+        <input class="mono" data-field="link" ${d} value="${esc(c.link)}" placeholder="https://civitai.com/models/…" autocomplete="off" spellcheck="false">
+      </div>
+
+      <div class="row">
+        <div class="rlab"><span class="rlab-t">${l.modelLabel}</span></div>
+        <div class="ctrl">
+          <select class="grow" data-field="model" ${d} title="${l.modelSelectTitle}">${modelOptions(c.model)}</select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="rlab"><span class="rlab-t">Strength:</span></div>
+        ${strengthHtml(cat, c, d)}
+      </div>
+
+      <div class="row">
+        <div class="rlab">
+          <span class="rlab-t">Trigger Words</span>
+          <button class="btn xs ghost" data-action="trig-add" ${d}>${I.plus} ${l.addVariationBtn}</button>
+        </div>
+        <div class="flist">${trigHtml}</div>
+      </div>
+
+      <div class="row">
+        <div class="rlab">
+          <span class="rlab-t">${l.itemLabel}</span>
+          <span class="popwrap">
+            <button class="btn xs ghost" data-action="item-add" ${d}>${I.plus} ${l.addItemBtn}</button>
+          </span>
+        </div>
+        <div class="flist">${itemsHtml}</div>
+      </div>
+
+    </div>
+  </article>`;
+}
+
+function modelOptions(sel){
+  let opts = `<option value="" disabled ${sel ? '' : 'selected'}>${L().selectModelOption}</option>`;
+  if(sel && !state.models.includes(sel)) opts += `<option selected>${esc(sel)}</option>`;
+  opts += state.models.map(m => `<option ${m===sel?'selected':''}>${esc(m)}</option>`).join('');
+  return opts;
+}
+
+function strengthHtml(cat, c, d){
+  if(!c.strength){
+    return `<div class="ctrl"><button class="btn xs ghost" data-action="strength-add" ${d}>${I.plus} Strength</button>
+            <span class="list-hint">${L().noStrengthText}</span></div>`;
+  }
+  const s = c.strength;
+  let ctrl = '';
+  if(s.mode === 'single')      ctrl = `<input class="str-in" data-field="str-single" ${d} value="${esc(s.single)}" placeholder="1" spellcheck="false">`;
+  else if(s.mode === 'range')  ctrl = `<input class="str-in" data-field="str-min" ${d} value="${esc(s.min)}" placeholder="0.8" spellcheck="false"><span class="dash">–</span><input class="str-in" data-field="str-max" ${d} value="${esc(s.max)}" placeholder="1" spellcheck="false">`;
+  else                         ctrl = `<input class="str-in wide" data-field="str-custom" ${d} value="${esc(s.custom)}" placeholder="0.6, 0.9 – 1.1 …" spellcheck="false">`;
+  return `
+  <div class="ctrl">
+    <span class="popwrap">
+      <button class="ibtn" data-action="strength-menu" ${d} title="${L().strengthFormatTitle}">≡</button>
+    </span>
+    ${ctrl}
+    <button class="ibtn danger" data-action="strength-del" ${d} title="${L().removeStrengthTitle}">${I.trash}</button>
+  </div>`;
+}
+
+function updateStats(vc, vCards){
+  const totalCards = state.categories.reduce((n,c) => n + c.cards.length, 0);
+  const q = query.trim();
+  $('#stats').innerHTML = q
+    ? L().resultsStats(vCards, vc)
+    : L().totalStats(state.categories.length, totalCards);
+}
+
+/* ---------- criação de categoria ---------- */
+function startNewCat(){
+  if(creatingCat){ const f=$('#newCatName'); f&&f.focus(); return; }
+  creatingCat = true; render();
+}
+function confirmNewCat(){
+  const inp = $('#newCatName'); if(!inp) return;
+  const name = inp.value.trim() || L().defaultCategoryName(state.categories.length + 1);
+  const cat = newCategory(name);
+  state.categories.push(cat);
+  creatingCat = false;
+  save();
+  focusSel = `[data-catwrap="${cat.id}"] .cat-name`;
+  render();
+  toast(L().toastCategoryCreated(name));
+}
+
+/* ---------- confirmação em 2 cliques (corrigida: não quebra layout) ---------- */
+function disarmAll(except){
+  document.querySelectorAll('.armed').forEach(b => {
+    if(b === except) return;
+    clearTimeout(b._t);
+    b.classList.remove('armed');
+    if(b.dataset.orig !== undefined) b.innerHTML = b.dataset.orig;
+  });
+}
+function armable(btn, done){
+  if(btn.classList.contains('armed')){
+    clearTimeout(btn._t);
+    btn.classList.remove('armed');
+    if(btn.dataset.orig !== undefined) btn.innerHTML = btn.dataset.orig;
+    done();
+    return;
+  }
+  disarmAll(btn);
+  btn.dataset.orig = btn.innerHTML;
+  btn.classList.add('armed');
+  btn.textContent = L().confirmWord;
+  btn._t = setTimeout(() => {
+    btn.classList.remove('armed');
+    btn.innerHTML = btn.dataset.orig;
+  }, 2600);
+}
+function hideCtx(){ const m = $('#ctxmenu'); if(m){ m.classList.remove('open'); m.innerHTML=''; } }
+function closePops(){
+  document.querySelectorAll('.pop.open').forEach(p => p.classList.remove('open'));
+  const pm = $('#popmenu'); if(pm){ pm.classList.remove('open'); pm.innerHTML=''; }
+  document.querySelectorAll('.pop-anchor').forEach(b => b.classList.remove('pop-anchor'));
+}
+/* Menu global no <body>: sem ancestral com transform, então o fixed
+   usa coordenadas da viewport de verdade — nunca desloca nem corta */
+function openPopMenu(btn, html){
+  const pm = $('#popmenu');
+  pm.innerHTML = html;
+  pm.classList.add('open');
+  pm.style.visibility = 'hidden';
+  pm.style.left = '8px';
+  pm.style.top = '8px';
+  const r = btn.getBoundingClientRect();
+  const pw = Math.min(pm.offsetWidth || 240, window.innerWidth - 16);
+  const ph = pm.offsetHeight || 90;
+  let left = r.left;
+  if(left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+  if(left < 8) left = 8;
+  let top = r.top - ph - 8;
+  if(top < 8) top = r.bottom + 8;
+  if(top + ph > window.innerHeight - 8) top = Math.max(8, window.innerHeight - ph - 8);
+  pm.style.left = left + 'px';
+  pm.style.top = top + 'px';
+  pm.style.visibility = '';
+}
+
+/* ---------- delegação: INPUT (salva em tempo real, sem re-render) ---------- */
+$('#deck').addEventListener('input', e => {
+  const t = e.target, f = t.dataset.field;
+  if(!f) return;
+  const cat  = getCat(t.dataset.cat);
+  const card = cat && getCard(cat, t.dataset.card);
+  switch(f){
+    case 'cat-name':  if(cat){ cat.name = t.value; save(); } break;
+    case 'cat-color': {
+      if(!cat) break;
+      cat.color = t.value; /* qualquer cor RGB via picker */
+      const wrap = t.closest('[data-catwrap]');
+      if(wrap) wrap.style.setProperty('--cat', t.value);
+      save();
+      break;
+    }
+    case 'card-name': if(card){ card.name = t.value; save(); } break;
+    case 'link':      if(card){ card.link = t.value; save(); } break;
+    case 'trigger': { const tr = card && card.triggers.find(x => x.id === t.dataset.id); if(tr){ tr.text = t.value; save(); } break; }
+    case 'item':      { const it = card && card.items.find(x => x.id === t.dataset.id); if(it){ it.text = t.value; save(); } break; }
+    case 'str-single': if(card && card.strength){ card.strength.single = t.value; save(); } break;
+    case 'str-min':    if(card && card.strength){ card.strength.min = t.value; save(); } break;
+    case 'str-max':    if(card && card.strength){ card.strength.max = t.value; save(); } break;
+    case 'str-custom': if(card && card.strength){ card.strength.custom = t.value; save(); } break;
+    default: return;
+  }
+});
+
+/* ---------- delegação: CHANGE (selects + reordenação ao sair do nome) ---------- */
+$('#deck').addEventListener('change', e => {
+  const t = e.target, f = t.dataset.field;
+  if(f === 'model'){
+    const cat = getCat(t.dataset.cat), card = cat && getCard(cat, t.dataset.card);
+    if(card){ card.model = t.value; save(); }
+    return;
+  }
+  if(f === 'cat-color'){
+    const cat = getCat(t.dataset.cat);
+    if(cat){ cat.color = t.value; save(); render(); }
+    return;
+  }
+  if(f === 'cat-name' || f === 'card-name') render(); /* reordena alfabeticamente */
+});
+
+/* ---------- delegação: SUBMIT (nova categoria) ---------- */
+$('#deck').addEventListener('submit', e => {
+  if(e.target.id === 'newCatForm'){ e.preventDefault(); confirmNewCat(); }
+});
+
+/* ---------- delegação: CLICK ---------- */
+document.addEventListener('click', e => {
+  /* fecha popovers abertos ao clicar fora (menu global fica no body, fora do .popwrap) */
+  if(!e.target.closest('.popwrap') && !e.target.closest('#popmenu')){
+    closePops();
+  }
+  if(!e.target.closest('#ctxmenu')) hideCtx();
+  const el = e.target.closest('[data-action]');
+  if(!el) return;
+  const a = el.dataset.action;
+  const cat = el.dataset.cat ? getCat(el.dataset.cat) : null;
+  const card = (cat && el.dataset.card) ? getCard(cat, el.dataset.card) : null;
+
+  switch(a){
+
+    case 'add-cat': startNewCat(); break;
+    case 'new-cat-cancel': creatingCat = false; render(); break;
+
+    case 'set-lang': {
+      const lang = el.dataset.lang;
+      if(!['pt','en','es'].includes(lang) || lang === state.lang) return;
+      state.lang = lang;
+      save();
+      applyLang();
+      if($('#modal').classList.contains('open')) renderModelList();
+      render();
+      break;
+    }
+
+    case 'add-card': {
+      if(!cat) return;
+      hideCtx();
+      addCardToCat(cat.id);
+      break;
+    }
+
+    case 'dup-card': {
+      if(!cat || !card) return;
+      hideCtx();
+      duplicateCard(cat.id, card.id);
+      break;
+    }
+
+    case 'del-cat': {
+      if(!cat) return;
+      armable(el, () => {
+        state.categories = state.categories.filter(x => x.id !== cat.id);
+        save(); render();
+        toast(L().toastCategoryDeleted, 'err');
+      });
+      break;
+    }
+
+    case 'del-card': {
+      if(!cat || !card) return;
+      armable(el, () => {
+        cat.cards = cat.cards.filter(x => x.id !== card.id);
+        save(); render();
+        toast(L().toastCardDeleted, 'err');
+      });
+      break;
+    }
+
+    case 'collapse': {
+      if(!cat) return;
+      cat.collapsed = !cat.collapsed;
+      save();
+      el.closest('.cat').classList.toggle('collapsed', cat.collapsed);
+      break;
+    }
+
+    case 'nsfw': {
+      if(!card) return;
+      card.nsfw = (card.nsfw + 1) % 3;
+      save();
+      el.className = 'nsfw s' + card.nsfw;
+      el.innerHTML = '<i></i>NSFW: ' + L().nsfwLabels[card.nsfw];
+      break;
+    }
+
+    case 'open-models': openModels(); break;
+
+    case 'theme': {
+      state.theme = state.theme === 'light' ? 'dark' : 'light';
+      save(); applyTheme();
+      toast(state.theme === 'light' ? L().toastLightMode : L().toastDarkMode);
+      break;
+    }
+
+    case 'strength-menu': {
+      if(!card) return;
+      const pm = $('#popmenu');
+      const reopen = pm.classList.contains('open') && pm.dataset.for === ('s' + card.id) && el.classList.contains('pop-anchor');
+      closePops();
+      if(reopen) break;
+      el.classList.add('pop-anchor');
+      const l1 = L();
+      const opt = (mode, name, ex) =>
+        `<button class="pop-item ${card.strength.mode===mode?'on':''}" data-action="strength-set" data-mode="${mode}" data-cat="${cat.id}" data-card="${card.id}">${name} <em>${ex}</em>${card.strength.mode===mode?'<span class="chk">✓</span>':''}</button>`;
+      pm.dataset.for = 's' + card.id;
+      openPopMenu(el,
+        opt('single', l1.strengthSingleLabel, l1.strengthSingleEx) +
+        opt('range', l1.strengthRangeLabel, l1.strengthRangeEx) +
+        opt('custom', l1.strengthCustomLabel, l1.strengthCustomEx));
+      break;
+    }
+    case 'strength-set': {
+      if(!card || !card.strength) return;
+      card.strength.mode = el.dataset.mode;
+      save();
+      focusSel = `[data-cardnode="${card.id}"] .str-in`;
+      render();
+      break;
+    }
+    case 'strength-del': {
+      if(!card) return;
+      card.strength = null;
+      save(); render();
+      toast(L().toastStrengthRemoved, 'warn');
+      break;
+    }
+    case 'strength-add': {
+      if(!card) return;
+      card.strength = { mode:'single', single:'1', min:'', max:'', custom:'' };
+      save();
+      focusSel = `[data-cardnode="${card.id}"] .str-in`;
+      render();
+      break;
+    }
+
+    case 'trig-add': {
+      if(!card) return;
+      const t = { id: uid(), text:'' };
+      card.triggers.push(t);
+      save();
+      focusSel = `[data-cardnode="${card.id}"] [data-id="${t.id}"]`;
+      render();
+      break;
+    }
+    case 'trig-del': {
+      if(!card) return;
+      card.triggers = card.triggers.filter(x => x.id !== el.dataset.id);
+      save(); render();
+      break;
+    }
+    case 'copy-trigger': {
+      if(!card) return;
+      const tr = card.triggers.find(x => x.id === el.dataset.id);
+      copyText(tr ? tr.text : '', L().toastTriggerCopied);
+      break;
+    }
+    case 'copy-item': {
+      if(!card) return;
+      const it = card.items.find(x => x.id === el.dataset.id);
+      copyText(it ? it.text : '', L().toastItemCopied);
+      break;
+    }
+
+    case 'item-add': {
+      if(!card) return;
+      const pm = $('#popmenu');
+      const reopen = pm.classList.contains('open') && pm.dataset.for === ('i' + card.id) && el.classList.contains('pop-anchor');
+      closePops();
+      if(reopen) break;
+      el.classList.add('pop-anchor');
+      pm.dataset.for = 'i' + card.id;
+      const l2 = L();
+      openPopMenu(el,
+        `<button class="pop-item" data-action="item-new" data-kind="individual" data-cat="${cat.id}" data-card="${card.id}">${l2.itemIndividualLabel} <em>${l2.itemIndividualEx}</em></button>` +
+        `<button class="pop-item" data-action="item-new" data-kind="conjunto" data-cat="${cat.id}" data-card="${card.id}">${l2.itemSetLabel} <em>${l2.itemSetEx}</em></button>`);
+      break;
+    }
+    case 'item-new': {
+      if(!card) return;
+      const last = card.items[card.items.length - 1];
+      const group = last ? (el.dataset.kind === 'conjunto' ? last.group : last.group + 1) : 1;
+      const it = { id: uid(), text:'', group };
+      card.items.push(it);
+      save();
+      focusSel = `[data-cardnode="${card.id}"] [data-id="${it.id}"]`;
+      render();
+      break;
+    }
+    case 'item-del': {
+      if(!card) return;
+      card.items = card.items.filter(x => x.id !== el.dataset.id);
+      save(); render();
+      break;
+    }
+    case 'ctx-new-card': {
+      hideCtx();
+      if(!cat) return;
+      addCardToCat(cat.id);
+      break;
+    }
+    case 'ctx-dup-card': {
+      hideCtx();
+      if(!cat || !card) return;
+      duplicateCard(cat.id, card.id);
+      break;
+    }
+    case 'ctx-del-card': {
+      hideCtx();
+      if(!cat || !card) return;
+      if(!confirm(L().confirmDeleteCard(card.name || L().unnamedCard))) return;
+      cat.cards = cat.cards.filter(x => x.id !== card.id);
+      save(); render();
+      toast(L().toastCardDeleted, 'err');
+      break;
+    }
+    case 'ctx-new-cat': {
+      hideCtx();
+      startNewCat();
+      break;
+    }
+  }
+});
+
+/* ---------- botão direito: nova ficha no vazio + duplicar na ficha ---------- */
+function openCtx(x, y, html){
+  const m = $('#ctxmenu');
+  m.innerHTML = html;
+  m.classList.add('open');
+  const w = 280, h = 200;
+  m.style.left = Math.min(x, window.innerWidth - w - 10) + 'px';
+  m.style.top = Math.min(y, window.innerHeight - h - 10) + 'px';
+}
+document.addEventListener('contextmenu', e => {
+  const deck = e.target.closest && e.target.closest('#deck');
+  if(!deck){ hideCtx(); return; }
+  if(e.target.closest('input,select,textarea')){ /* permite menu nativo em campo de texto? não — usamos o nosso */
+  }
+  const cardEl = e.target.closest('[data-cardnode]');
+  const catWrap = e.target.closest('[data-catwrap]');
+  const lc = L();
+  if(cardEl){
+    e.preventDefault();
+    let realCatId = cardEl.getAttribute('data-cat');
+    let realCardId = cardEl.getAttribute('data-card');
+    if(!realCatId && catWrap){ realCatId = catWrap.getAttribute('data-catwrap'); }
+    if(!realCardId){ realCardId = cardEl.getAttribute('data-cardnode'); }
+    const cat = getCat(realCatId);
+    const card = cat && getCard(cat, realCardId);
+    const nm = card ? esc(card.name || lc.thisCardFallback) : lc.thisCardFallback;
+    closePops();
+    openCtx(e.clientX, e.clientY, `
+      <div class="ctx-title">${nm}</div>
+      <button class="ctx-item" data-action="ctx-dup-card" data-cat="${esc(realCatId||'')}" data-card="${esc(realCardId||'')}">⧉&nbsp; ${lc.ctxDuplicateCard}</button>
+      <button class="ctx-item" data-action="ctx-new-card" data-cat="${esc(realCatId||'')}">＋&nbsp; ${lc.ctxNewCardHere}</button>
+      <div class="ctx-sep"></div>
+      <button class="ctx-item danger" data-action="ctx-del-card" data-cat="${esc(realCatId||'')}" data-card="${esc(realCardId||'')}">🗑&nbsp; ${lc.ctxDeleteCard}</button>
+    `);
+    return;
+  }
+  if(catWrap){
+    e.preventDefault();
+    const catId = catWrap.getAttribute('data-catwrap');
+    const cat = getCat(catId);
+    closePops();
+    openCtx(e.clientX, e.clientY, `
+      <div class="ctx-title">${esc(cat ? cat.name : lc.categoryFallback)}</div>
+      <button class="ctx-item" data-action="ctx-new-card" data-cat="${esc(catId)}">＋&nbsp; ${lc.ctxNewCardHereShort}</button>
+      <div class="ctx-sep"></div>
+      <button class="ctx-item" data-action="ctx-new-cat">＋&nbsp; ${lc.ctxNewCategory}</button>
+    `);
+    return;
+  }
+  /* vazio do deck */
+  e.preventDefault();
+  hideCtx();
+  openCtx(e.clientX, e.clientY, `
+    <div class="ctx-title">${esc(lc.brandName)} S2</div>
+    <button class="ctx-item" data-action="ctx-new-cat">＋&nbsp; ${lc.ctxNewCategory}</button>
+  `);
+});
+document.addEventListener('scroll', () => { hideCtx(); closePops(); }, true);
+window.addEventListener('blur', () => { hideCtx(); closePops(); });
+window.addEventListener('resize', closePops);
+
+/* ---------- busca ---------- */
+$('#search').addEventListener('input', e => { query = e.target.value; render(); });
+$('#searchClear').addEventListener('click', () => {
+  query = ''; $('#search').value = ''; render(); $('#search').focus();
+});
+
+/* ---------- colunas por linha (3/4/5, vale para tudo) ---------- */
+$('#colsSel').addEventListener('change', e => {
+  const n = parseInt(e.target.value, 10);
+  if(![3,4,5].includes(n)) return;
+  state.columns = n;
+  save(); applyCols();
+  toast(L().toastGrid(n));
+});
+
+/* ---------- modal de modelos ---------- */
+function usageCount(m){
+  let n = 0;
+  state.categories.forEach(c => c.cards.forEach(cd => { if(cd.model === m) n++; }));
+  return n;
+}
+function renderModelList(){
+  const list = $('#modelList');
+  const l = L();
+  if(!state.models.length){
+    list.innerHTML = `<li class="model-hint">${l.noModelsHint}</li>`;
+    return;
+  }
+  list.innerHTML = state.models.map((m,i) => `
+    <li class="model-row">
+      <span class="m-port"></span>
+      <span class="m-name mono">${esc(m)}</span>
+      <span class="m-count">${l.ficha(usageCount(m))}</span>
+      <button class="x-btn" data-del-model="${i}" title="${l.removeModelTitle}">${I.x}</button>
+    </li>`).join('');
+}
+function openModels(){ renderModelList(); $('#modal').classList.add('open'); $('#newModelName').focus(); }
+function closeModels(){ $('#modal').classList.remove('open'); }
+
+$('#modalClose').addEventListener('click', closeModels);
+$('#modal').addEventListener('click', e => { if(e.target === $('#modal')) closeModels(); });
+
+function addModel(){
+  const inp = $('#newModelName');
+  const name = inp.value.trim();
+  if(!name) return;
+  if(state.models.some(m => m.toLowerCase() === name.toLowerCase())){
+    toast(L().toastModelExists, 'warn'); return;
+  }
+  state.models.push(name);
+  inp.value = ''; inp.focus();
+  save(); renderModelList(); render();
+  toast(L().toastModelAdded(name));
+}
+$('#addModelBtn').addEventListener('click', addModel);
+$('#newModelName').addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); addModel(); } });
+$('#modelList').addEventListener('click', e => {
+  const b = e.target.closest('[data-del-model]');
+  if(!b) return;
+  const removed = state.models.splice(+b.dataset.delModel, 1)[0];
+  save(); renderModelList(); render();
+  toast(L().toastModelRemoved(removed), 'warn');
+});
+
+/* ---------- teclado global ---------- */
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape'){
+    closeModels();
+    hideCtx();
+    closePops();
+    if(creatingCat){ creatingCat = false; render(); }
+  }
+});
+$('#deck').addEventListener('keydown', e => {
+  if(e.target.id === 'newCatName' && e.key === 'Enter'){ e.preventDefault(); confirmNewCat(); }
+});
+
+/* ---------- copiar (sem precisar selecionar o campo) ---------- */
+async function copyText(txt, okMsg){
+  const v = String(txt || '');
+  if(!v.trim()){ toast(L().toastNothingToCopy, 'warn'); return; }
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(v);
+    }else{
+      const ta = document.createElement('textarea');
+      ta.value = v; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); ta.remove();
+    }
+    toast(okMsg || L().toastCopied);
+  }catch(e){
+    try{
+      const ta = document.createElement('textarea');
+      ta.value = v; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); ta.remove();
+      toast(okMsg || L().toastCopied);
+    }catch(e2){ toast(L().toastCopyFailed, 'err'); }
+  }
+}
+
+/* ---------- toast ---------- */
+let toastTimer = null;
+function toast(msg, kind){
+  const t = $('#toast');
+  t.textContent = msg;
+  t.className = 'show ' + (kind || '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = ''; }, 2300);
+}
+
+/* ---------- boot ---------- */
+window.addEventListener('pywebviewready', async () => {
+  state = await load();
+  applyLang();
+  applyCols();
+  render();
+});
+</script>
+</body>
+</html>
